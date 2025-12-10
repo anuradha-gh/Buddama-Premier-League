@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@import "tailwindcss";
+
+:root {
+  /* Deep Dark Blue/Slate Background */
+  --background: #020617;
+  /* slate-950 */
+  --foreground: #ffffff;
+
+  /* Primary Accent: Blue */
+  --primary: #004aad;
+  --primary-foreground: #ffffff;
+
+  /* Secondary Accent: Vibrant Orange */
+  --secondary: #FF5F1F;
+  --secondary-foreground: #ffffff;
+
+  /* Card Backgrounds (Glassmorphism base) */
+  --card: rgba(15, 23, 42, 0.6);
+  /* slate-900 with opacity */
+  --card-foreground: #ffffff;
+
+  --border: rgba(255, 255, 255, 0.1);
+
+  --font-bebas: 'Bebas Neue', sans-serif;
+  --font-inter: 'Inter', sans-serif;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+
+  --font-display: var(--font-bebas);
+  --font-sans: var(--font-inter);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display);
+  letter-spacing: 0.05em;
+}
+
+/* Glassmorphism Utility Class */
+.glass-card {
+  background: var(--card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  /* slate-800 */
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+  /* slate-700 */
+}

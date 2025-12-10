@@ -1,0 +1,96 @@
+import { db } from "@/lib/firebase";
+import { collection, getDocs, getDoc, doc, addDoc, updateDoc, deleteDoc, query, orderBy, Timestamp } from "firebase/firestore";
+import { GalleryImage } from "@/lib/types";
+
+const GALLERY_COLLECTION = "gallery";
+
+// Get all gallery images
+export async function getAllGalleryImages(): Promise<GalleryImage[]> {
+    try {
+        const q = query(
+            collection(db, GALLERY_COLLECTION),
+            orderBy("uploadDate", "desc")
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as GalleryImage));
+    } catch (error) {
+        console.error("Error fetching gallery images:", error);
+        return [];
+    }
+}
+
+// Get single gallery image
+export async function getGalleryImageById(id: string): Promise<GalleryImage | null> {
+    try {
+        const docRef = doc(db, GALLERY_COLLECTION, id);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+            return {
+                id: docSnap.id,
+                ...docSnap.data()
+            } as GalleryImage;
+        }
+        return null;
+    } catch (error) {
+        console.error("Error fetching gallery image:", error);
+        return null;
+    }
+}
+
+// Create gallery image metadata (after upload to Storage)
+export async function createGalleryImage(imageData: Omit<GalleryImage, 'id'>): Promise<GalleryImage | null> {
+    try {
+        const docRef = await addDoc(collection(db, GALLERY_COLLECTION), {
+            ...imageData,
+            uploadDate: imageData.uploadDate || new Date().toISOString()
+        });
+
+        return {
+            id: docRef.id,
+            ...imageData
+        };
+    } catch (error) {
+        console.error("Error creating gallery image:", error);
+        return null;
+    }
+}
+
+// Update gallery image metadata
+export async function updateGalleryImage(id: string, updates: Partial<GalleryImage>): Promise<GalleryImage | null> {
+    try {
+        const docRef = doc(db, GALLERY_COLLECTION, id);
+        await updateDoc(docRef, updates);
+
+        const updated = await getGalleryImageById(id);
+        return updated;
+    } catch (error) {
+        console.error("Error updating gallery image:", error);
+        return null;
+    }
+}
+
+// Delete gallery image metadata
+export async function deleteGalleryImage(id: string): Promise<boolean> {
+    try {
+        await deleteDoc(doc(db, GALLERY_COLLECTION, id));
+        return true;
+    } catch (error) {
+        console.error("Error deleting gallery image:", error);
+        return false;
+    }
+}
+
+// Get images by season
+export async function getGalleryImagesBySeason(season: string): Promise<GalleryImage[]> {
+    try {
+        const allImages = await getAllGalleryImages();
+        return allImages.filter(img => img.season === season);
+    } catch (error) {
+        console.error("Error fetching gallery images by season:", error);
+        return [];
+    }
+}
