@@ -105,3 +105,44 @@ export async function getGalleryImagesBySeason(season: string): Promise<GalleryI
         return [];
     }
 }
+
+// Get all albums with metadata
+export async function getAlbums(): Promise<{ name: string; cover: string; count: number; season?: string }[]> {
+    try {
+        const allImages = await getAllGalleryImages();
+        const albumsMap = new Map<string, { cover: string; count: number; season?: string }>();
+
+        allImages.forEach(img => {
+            if (img.album) {
+                if (!albumsMap.has(img.album)) {
+                    albumsMap.set(img.album, {
+                        cover: img.albumCover || img.imageUrl,
+                        count: 0,
+                        season: img.season
+                    });
+                }
+                const album = albumsMap.get(img.album)!;
+                album.count++;
+            }
+        });
+
+        return Array.from(albumsMap.entries()).map(([name, data]) => ({
+            name,
+            ...data
+        }));
+    } catch (error) {
+        console.error("Error fetching albums:", error);
+        return [];
+    }
+}
+
+// Get photos by album name
+export async function getPhotosByAlbum(albumName: string): Promise<GalleryImage[]> {
+    try {
+        const allImages = await getAllGalleryImages();
+        return allImages.filter(img => img.album === albumName);
+    } catch (error) {
+        console.error("Error fetching photos by album:", error);
+        return [];
+    }
+}

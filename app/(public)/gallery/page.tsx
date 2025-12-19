@@ -1,131 +1,168 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getAllGalleryImages } from "@/lib/services/galleryService";
+import { getAlbums, getPhotosByAlbum } from "@/lib/services/galleryService";
 import { GalleryImage } from "@/lib/types";
 import Image from "next/image";
-import { Loader, Image as ImageIcon, X } from "lucide-react";
+import { Folder, Image as ImageIcon, X, ArrowLeft } from "lucide-react";
+
+interface Album {
+    name: string;
+    cover: string;
+    count: number;
+    season?: string;
+}
 
 export default function GalleryPage() {
-    const [images, setImages] = useState<GalleryImage[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [albums, setAlbums] = useState<Album[]>([]);
+    const [selectedAlbum, setSelectedAlbum] = useState<string | null>(null);
+    const [albumPhotos, setAlbumPhotos] = useState<GalleryImage[]>([]);
     const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
-    const [filterSeason, setFilterSeason] = useState<string>("all");
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        loadGallery();
+        loadAlbums();
     }, []);
 
-    const loadGallery = async () => {
+    const loadAlbums = async () => {
         setLoading(true);
-        const data = await getAllGalleryImages();
-        setImages(data);
+        const albumData = await getAlbums();
+        setAlbums(albumData);
         setLoading(false);
     };
 
-    // Get unique seasons
-    const seasons = Array.from(new Set(images.filter(img => img.season).map(img => img.season)));
+    const openAlbum = async (albumName: string) => {
+        setSelectedAlbum(albumName);
+        setLoading(true);
+        const photos = await getPhotosByAlbum(albumName);
+        setAlbumPhotos(photos);
+        setLoading(false);
+    };
 
-    // Filter images
-    const filteredImages = filterSeason === "all"
-        ? images
-        : images.filter(img => img.season === filterSeason);
+    const closeAlbum = () => {
+        setSelectedAlbum(null);
+        setAlbumPhotos([]);
+    };
 
     return (
-        <div className="min-h-screen bg-slate-950 py-12">
-            <div className="container mx-auto px-4 max-w-7xl">
+        <div className="min-h-screen bg-slate-950 text-white">
+            <div className="container mx-auto px-4 py-12">
                 {/* Header */}
-                <div className="text-center mb-12">
-                    <h1 className="font-display text-5xl md:text-7xl text-white mb-4 tracking-wide">
-                        BPL <span className="text-primary">GALLERY</span>
-                    </h1>
-                    <p className="text-xl text-gray-400">Moments from the Buddama Premier League</p>
+                <div className="mb-8">
+                    {selectedAlbum ? (
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={closeAlbum}
+                                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                            >
+                                <ArrowLeft size={24} />
+                            </button>
+                            <div>
+                                <h1 className="font-display text-4xl md:text-5xl">{selectedAlbum}</h1>
+                                <p className="text-gray-400 mt-2">{albumPhotos.length} photos</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-center">
+                            <h1 className="font-display text-4xl md:text-5xl text-white mb-4">PHOTO GALLERY</h1>
+                            <p className="text-gray-400">Browse BPL photo albums and moments</p>
+                        </div>
+                    )}
                 </div>
 
-                {/* Season Filter */}
-                {seasons.length > 0 && (
-                    <div className="flex flex-wrap gap-3 justify-center mb-8">
-                        <button
-                            onClick={() => setFilterSeason("all")}
-                            className={`px-6 py-2 rounded-lg font-medium transition-colors ${filterSeason === "all"
-                                    ? "bg-primary text-slate-950"
-                                    : "bg-slate-800 text-gray-300 hover:bg-slate-700"
-                                }`}
-                        >
-                            All Photos
-                        </button>
-                        {seasons.map((season) => (
-                            <button
-                                key={season}
-                                onClick={() => setFilterSeason(season!)}
-                                className={`px-6 py-2 rounded-lg font-medium transition-colors ${filterSeason === season
-                                        ? "bg-primary text-slate-950"
-                                        : "bg-slate-800 text-gray-300 hover:bg-slate-700"
-                                    }`}
-                            >
-                                {season}
-                            </button>
-                        ))}
-                    </div>
-                )}
-
-                {/* Gallery Grid */}
                 {loading ? (
                     <div className="flex items-center justify-center py-20">
-                        <Loader className="animate-spin text-primary" size={40} />
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
                     </div>
-                ) : filteredImages.length === 0 ? (
-                    <div className="text-center py-20 bg-slate-900/50 rounded-xl border border-white/5">
-                        <ImageIcon className="mx-auto text-gray-500 mb-4" size={64} />
-                        <h3 className="text-2xl font-bold text-white mb-2">No Photos Yet</h3>
-                        <p className="text-gray-400">Check back soon for exciting moments from BPL!</p>
-                    </div>
-                ) : (
+                ) : selectedAlbum ? (
+                    /* Album Photos Grid */
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {filteredImages.map((image) => (
+                        {albumPhotos.map((photo) => (
                             <div
-                                key={image.id}
-                                onClick={() => setSelectedImage(image)}
+                                key={photo.id}
+                                onClick={() => setSelectedImage(photo)}
                                 className="group relative bg-slate-900 rounded-xl overflow-hidden border border-white/10 hover:border-primary/50 transition-all cursor-pointer hover:scale-105"
                             >
                                 <div className="aspect-square relative">
                                     <Image
-                                        src={image.imageUrl}
-                                        alt={image.title}
+                                        src={photo.imageUrl}
+                                        alt={photo.title}
                                         fill
-                                        className="object-cover group-hover:scale-110 transition-transform duration-300"
+                                        className="object-cover"
                                     />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </div>
-                                <div className="absolute bottom-0 left-0 right-0 p-4 transform translate-y-full group-hover:translate-y-0 transition-transform">
-                                    <h3 className="text-white font-bold truncate">{image.title}</h3>
-                                    {image.description && (
-                                        <p className="text-gray-300 text-sm line-clamp-2 mt-1">{image.description}</p>
-                                    )}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="absolute bottom-0 left-0 right-0 p-4">
+                                        <h3 className="text-white font-bold text-sm">{photo.title}</h3>
+                                    </div>
                                 </div>
                             </div>
                         ))}
                     </div>
+                ) : (
+                    /* Albums Grid */
+                    albums.length === 0 ? (
+                        <div className="text-center py-20 bg-slate-900/50 rounded-xl border border-white/5">
+                            <Folder className="mx-auto text-gray-500 mb-4" size={64} />
+                            <h3 className="text-2xl font-bold text-white mb-2">No Albums Yet</h3>
+                            <p className="text-gray-400">Check back soon for BPL photo albums</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                            {albums.map((album) => (
+                                <div
+                                    key={album.name}
+                                    onClick={() => openAlbum(album.name)}
+                                    className="group relative bg-slate-900 rounded-xl overflow-hidden border border-white/10 hover:border-primary/50 transition-all cursor-pointer hover:scale-105"
+                                >
+                                    <div className="aspect-square relative">
+                                        <Image
+                                            src={album.cover}
+                                            alt={album.name}
+                                            fill
+                                            className="object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
+
+                                        {/* Folder Icon Overlay */}
+                                        <div className="absolute top-4 right-4">
+                                            <div className="p-2 bg-black/50 backdrop-blur-sm rounded-lg">
+                                                <Folder className="text-primary" size={24} />
+                                            </div>
+                                        </div>
+
+                                        {/* Album Info */}
+                                        <div className="absolute bottom-0 left-0 right-0 p-4">
+                                            <h3 className="text-white font-bold text-lg mb-1">{album.name}</h3>
+                                            <div className="flex items-center gap-2 text-sm text-gray-300">
+                                                <ImageIcon size={16} />
+                                                <span>{album.count} photos</span>
+                                                {album.season && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span className="text-primary">{album.season}</span>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )
                 )}
 
                 {/* Lightbox Modal */}
                 {selectedImage && (
-                    <div
-                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-sm"
-                        onClick={() => setSelectedImage(null)}
-                    >
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-sm">
                         <button
                             onClick={() => setSelectedImage(null)}
-                            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors z-10"
+                            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
                         >
                             <X size={24} />
                         </button>
-
-                        <div
-                            className="max-w-5xl w-full"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="relative w-full h-[70vh]">
+                        <div className="max-w-6xl w-full">
+                            <div className="relative aspect-video">
                                 <Image
                                     src={selectedImage.imageUrl}
                                     alt={selectedImage.title}
@@ -133,17 +170,11 @@ export default function GalleryPage() {
                                     className="object-contain"
                                 />
                             </div>
-                            <div className="mt-6 bg-slate-900/80 rounded-xl p-6 backdrop-blur-sm">
-                                <h2 className="text-2xl font-bold text-white mb-2">{selectedImage.title}</h2>
+                            <div className="mt-4 text-center">
+                                <h3 className="text-2xl font-bold text-white mb-2">{selectedImage.title}</h3>
                                 {selectedImage.description && (
-                                    <p className="text-gray-300 mb-3">{selectedImage.description}</p>
+                                    <p className="text-gray-400">{selectedImage.description}</p>
                                 )}
-                                <div className="flex items-center gap-4 text-sm text-gray-400">
-                                    {selectedImage.season && (
-                                        <span className="text-primary font-medium">{selectedImage.season}</span>
-                                    )}
-                                    <span>{new Date(selectedImage.uploadDate).toLocaleDateString()}</span>
-                                </div>
                             </div>
                         </div>
                     </div>
