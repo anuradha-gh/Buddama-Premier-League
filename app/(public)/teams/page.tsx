@@ -1,6 +1,10 @@
 import TeamCard from "@/components/TeamCard";
 import { getAllTeams } from "@/lib/services/teamSeasonService";
 
+// Force dynamic rendering to always fetch fresh data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function TeamsPage() {
     const teams = await getAllTeams();
 

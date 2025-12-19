@@ -10,6 +10,10 @@ interface TeamDetailPageProps {
     }>;
 }
 
+// Force dynamic rendering to always fetch fresh data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // Generate static params for all teams
 export async function generateStaticParams() {
     const teams = await getAllTeams();
