@@ -195,7 +195,7 @@ export default function GalleryPage() {
                             </div>
                         )}
                     </div>
-                )
+                )}
 
                 {/* Lightbox Modal */}
                 {selectedImage && (
