@@ -44,10 +44,21 @@ export async function getGalleryImageById(id: string): Promise<GalleryImage | nu
 // Create gallery image metadata (after upload to Storage)
 export async function createGalleryImage(imageData: Omit<GalleryImage, 'id'>): Promise<GalleryImage | null> {
     try {
-        const docRef = await addDoc(collection(db, GALLERY_COLLECTION), {
-            ...imageData,
-            uploadDate: imageData.uploadDate || new Date().toISOString()
-        });
+        // Remove undefined fields to avoid Firestore errors
+        const cleanData: any = {
+            title: imageData.title,
+            imageUrl: imageData.imageUrl,
+            uploadDate: imageData.uploadDate || new Date().toISOString(),
+            uploadedBy: imageData.uploadedBy,
+            tags: imageData.tags || []
+        };
+
+        // Only include optional fields if they have values
+        if (imageData.description) cleanData.description = imageData.description;
+        if (imageData.season) cleanData.season = imageData.season;
+        if (imageData.thumbnailUrl) cleanData.thumbnailUrl = imageData.thumbnailUrl;
+
+        const docRef = await addDoc(collection(db, GALLERY_COLLECTION), cleanData);
 
         return {
             id: docRef.id,

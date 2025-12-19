@@ -99,15 +99,21 @@ export default function AdminGalleryPage() {
                             const title = commonTitle || `Photo ${index + 1}`;
                             console.log("📝 Saving to Firestore:", { title, downloadURL });
 
-                            const newImage = await createGalleryImage({
+                            const imageData: any = {
                                 title,
                                 description: commonDescription,
                                 imageUrl: downloadURL,
                                 uploadDate: new Date().toISOString(),
                                 uploadedBy: "Admin",
-                                season: commonSeason || undefined,
                                 tags: []
-                            });
+                            };
+
+                            // Only include season if it has a value
+                            if (commonSeason) {
+                                imageData.season = commonSeason;
+                            }
+
+                            const newImage = await createGalleryImage(imageData);
 
                             if (newImage) {
                                 console.log("✅ Firestore save success:", newImage.id);
