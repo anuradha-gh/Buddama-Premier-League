@@ -74,9 +74,12 @@ export default function AdminGalleryPage() {
                     i === index ? { ...f, status: 'uploading' as const } : f
                 ));
 
-                // Upload to Firebase Storage
+                // Upload to Firebase Storage in album folder
                 const timestamp = Date.now();
-                const fileName = `gallery/${timestamp}_${index}_${fileObj.file.name}`;
+                const sanitizedAlbumName = albumName.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
+                const fileName = `gallery/${sanitizedAlbumName}/${timestamp}_${index}_${fileObj.file.name}`;
+                console.log("📁 Uploading to:", fileName, "| Album:", albumName);
+
                 const storageRef = ref(storage, fileName);
                 const uploadTask = uploadBytesResumable(storageRef, fileObj.file);
 
@@ -111,7 +114,9 @@ export default function AdminGalleryPage() {
                                 imageUrl: downloadURL,
                                 uploadDate: new Date().toISOString(),
                                 uploadedBy: "Admin",
-                                tags: []
+                                tags: [],
+                                album: albumName,  // Always included (required field)
+                                albumCover: index === 0 ? downloadURL : undefined
                             };
 
                             // Only include season if it has a value
@@ -119,14 +124,12 @@ export default function AdminGalleryPage() {
                                 imageData.season = commonSeason;
                             }
 
-                            // Include album if provided
-                            if (albumName) {
-                                imageData.album = albumName;
-                                // First image becomes album cover
-                                if (index === 0) {
-                                    imageData.albumCover = downloadURL;
-                                }
+                            // Remove undefined albumCover
+                            if (!imageData.albumCover) {
+                                delete imageData.albumCover;
                             }
+
+                            console.log("📝 Full Firestore data:", imageData);
 
                             const newImage = await createGalleryImage(imageData);
 
