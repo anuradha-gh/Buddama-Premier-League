@@ -152,4 +152,6 @@ export interface GalleryImage {
     uploadedBy: string;
     season?: string;
     tags?: string[];
+    album?: string;
+    albumCover?: string;
 }

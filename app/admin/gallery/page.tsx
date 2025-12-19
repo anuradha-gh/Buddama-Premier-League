@@ -23,6 +23,7 @@ export default function AdminGalleryPage() {
     // Form state for bulk upload
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [selectedFiles, setSelectedFiles] = useState<UploadingFile[]>([]);
+    const [albumName, setAlbumName] = useState("");
     const [commonTitle, setCommonTitle] = useState("");
     const [commonDescription, setCommonDescription] = useState("");
     const [commonSeason, setCommonSeason] = useState("");
@@ -111,6 +112,15 @@ export default function AdminGalleryPage() {
                             // Only include season if it has a value
                             if (commonSeason) {
                                 imageData.season = commonSeason;
+                            }
+
+                            // Include album if provided
+                            if (albumName) {
+                                imageData.album = albumName;
+                                // First image becomes album cover
+                                if (index === 0) {
+                                    imageData.albumCover = downloadURL;
+                                }
                             }
 
                             const newImage = await createGalleryImage(imageData);
@@ -324,6 +334,24 @@ export default function AdminGalleryPage() {
                                         </div>
                                     </div>
                                 )}
+
+                                {/* Album Name */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                                        Album/Folder Name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={albumName}
+                                        onChange={(e) => setAlbumName(e.target.value)}
+                                        placeholder="e.g., BPL 2025 Finals Day 1"
+                                        className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-3 text-white"
+                                        disabled={uploading}
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Photos will be grouped in this album/folder
+                                    </p>
+                                </div>
 
                                 {/* Common Title */}
                                 <div>
