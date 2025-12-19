@@ -110,6 +110,9 @@ export async function getGalleryImagesBySeason(season: string): Promise<GalleryI
 export async function getAlbums(): Promise<{ name: string; cover: string; count: number; season?: string }[]> {
     try {
         const allImages = await getAllGalleryImages();
+        console.log("📸 Total images fetched:", allImages.length);
+        console.log("📸 Sample image:", allImages[0]);
+
         const albumsMap = new Map<string, { cover: string; count: number; season?: string }>();
 
         allImages.forEach(img => {
@@ -126,10 +129,13 @@ export async function getAlbums(): Promise<{ name: string; cover: string; count:
             }
         });
 
-        return Array.from(albumsMap.entries()).map(([name, data]) => ({
+        const albums = Array.from(albumsMap.entries()).map(([name, data]) => ({
             name,
             ...data
         }));
+
+        console.log("📁 Albums found:", albums);
+        return albums;
     } catch (error) {
         console.error("Error fetching albums:", error);
         return [];
