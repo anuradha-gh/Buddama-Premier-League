@@ -32,6 +32,7 @@ export interface PointsTableEntry {
     seasonId: string;
     teamId: string;
     teamName: string;
+    teamLogo?: string;
     played: number;
     won: number;
     lost: number;

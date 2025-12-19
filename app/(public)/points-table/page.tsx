@@ -99,7 +99,19 @@ export default function PointsTablePage() {
                                             {entry.position}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className="font-bold">{entry.teamName}</span>
+                                            <div className="flex items-center gap-3">
+                                                {entry.teamLogo && (
+                                                    <div className="relative w-8 h-8 flex-shrink-0">
+                                                        <Image
+                                                            src={entry.teamLogo}
+                                                            alt={entry.teamName}
+                                                            fill
+                                                            className="object-contain"
+                                                        />
+                                                    </div>
+                                                )}
+                                                <span className="font-bold">{entry.teamName}</span>
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 text-center">{entry.played}</td>
                                         <td className="px-6 py-4 text-center text-green-400">{entry.won}</td>

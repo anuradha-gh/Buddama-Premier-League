@@ -16,7 +16,7 @@ export interface PointsTableEntry {
     position: number;
 }
 
-// Get points table for a season
+// Get points table for a season with team logos
 export async function getPointsTableBySeason(seasonId: string): Promise<PointsTableEntry[]> {
     if (!db) return [];
     try {
@@ -26,7 +26,25 @@ export async function getPointsTableBySeason(seasonId: string): Promise<PointsTa
             orderBy("position", "asc")
         );
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PointsTableEntry));
+        const entries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PointsTableEntry));
+
+        // Fetch team logos
+        const enrichedEntries = await Promise.all(
+            entries.map(async (entry) => {
+                try {
+                    const teamDoc = await getDocs(query(collection(db, "teams"), where("__name__", "==", entry.teamId)));
+                    if (!teamDoc.empty) {
+                        const teamData = teamDoc.docs[0].data();
+                        return { ...entry, teamLogo: teamData.logo };
+                    }
+                } catch (error) {
+                    console.error(`Error fetching team logo for ${entry.teamId}:`, error);
+                }
+                return entry;
+            })
+        );
+
+        return enrichedEntries;
     } catch (error) {
         console.error("Error fetching points table:", error);
         return [];
