@@ -93,9 +93,12 @@ export default function AdminGalleryPage() {
                         async () => {
                             // Get download URL
                             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                            console.log("✅ Storage upload complete:", downloadURL);
 
                             // Save metadata to Firestore
                             const title = commonTitle || `Photo ${index + 1}`;
+                            console.log("📝 Saving to Firestore:", { title, downloadURL });
+
                             const newImage = await createGalleryImage({
                                 title,
                                 description: commonDescription,
@@ -107,9 +110,15 @@ export default function AdminGalleryPage() {
                             });
 
                             if (newImage) {
+                                console.log("✅ Firestore save success:", newImage.id);
                                 setImages(prev => [newImage, ...prev]);
                                 setSelectedFiles(prev => prev.map((f, i) =>
                                     i === index ? { ...f, status: 'success' as const } : f
+                                ));
+                            } else {
+                                console.error("❌ Firestore save failed - createGalleryImage returned null");
+                                setSelectedFiles(prev => prev.map((f, i) =>
+                                    i === index ? { ...f, status: 'error' as const } : f
                                 ));
                             }
                             resolve();
