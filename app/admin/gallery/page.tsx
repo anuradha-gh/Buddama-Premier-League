@@ -60,6 +60,11 @@ export default function AdminGalleryPage() {
             return;
         }
 
+        if (!albumName || albumName.trim() === "") {
+            alert("⚠️ Album/Folder Name is REQUIRED!\n\nPlease enter a name to group your photos.\nExample: 'BPL 2025 Finals Day 1'");
+            return;
+        }
+
         setUploading(true);
 
         const uploadPromises = selectedFiles.map(async (fileObj, index) => {
@@ -338,7 +343,7 @@ export default function AdminGalleryPage() {
                                 {/* Album Name */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-400 mb-2">
-                                        Album/Folder Name
+                                        Album/Folder Name <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="text"
@@ -347,9 +352,10 @@ export default function AdminGalleryPage() {
                                         placeholder="e.g., BPL 2025 Finals Day 1"
                                         className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-3 text-white"
                                         disabled={uploading}
+                                        required
                                     />
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        Photos will be grouped in this album/folder
+                                    <p className="text-xs text-red-400 mt-1">
+                                        <strong>Required:</strong> Photos will be grouped in this album/folder
                                     </p>
                                 </div>
 
