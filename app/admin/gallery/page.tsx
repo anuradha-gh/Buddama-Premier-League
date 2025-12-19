@@ -1,26 +1,31 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Upload, Image as ImageIcon, Trash2, X, Loader } from "lucide-react";
+import { Upload, Image as ImageIcon, Trash2, X, Loader, CheckCircle } from "lucide-react";
 import { storage } from "@/lib/firebase";
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { getAllGalleryImages, createGalleryImage, deleteGalleryImage } from "@/lib/services/galleryService";
 import { GalleryImage } from "@/lib/types";
 import Image from "next/image";
 
+interface UploadingFile {
+    file: File;
+    preview: string;
+    progress: number;
+    status: 'pending' | 'uploading' | 'success' | 'error';
+}
+
 export default function AdminGalleryPage() {
     const [images, setImages] = useState<GalleryImage[]>([]);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState(0);
 
-    // Form state
+    // Form state for bulk upload
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [previewUrl, setPreviewUrl] = useState<string>("");
-    const [title, setTitle] = useState("");
-    const [description, setDescription] = useState("");
-    const [season, setSeason] = useState("");
+    const [selectedFiles, setSelectedFiles] = useState<UploadingFile[]>([]);
+    const [commonTitle, setCommonTitle] = useState("");
+    const [commonDescription, setCommonDescription] = useState("");
+    const [commonSeason, setCommonSeason] = useState("");
 
     useEffect(() => {
         loadGallery();
@@ -34,79 +39,108 @@ export default function AdminGalleryPage() {
     };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setSelectedFile(file);
-            setPreviewUrl(URL.createObjectURL(file));
-        }
+        const files = Array.from(e.target.files || []);
+        const newFiles: UploadingFile[] = files.map(file => ({
+            file,
+            preview: URL.createObjectURL(file),
+            progress: 0,
+            status: 'pending'
+        }));
+        setSelectedFiles(prev => [...prev, ...newFiles]);
     };
 
-    const handleUpload = async () => {
-        if (!selectedFile || !title) {
-            alert("Please provide a file and title");
+    const removeFile = (index: number) => {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleBulkUpload = async () => {
+        if (selectedFiles.length === 0) {
+            alert("Please select at least one image");
             return;
         }
 
         setUploading(true);
-        setUploadProgress(0);
 
-        try {
-            // Upload to Firebase Storage
-            const timestamp = Date.now();
-            const fileName = `gallery/${timestamp}_${selectedFile.name}`;
-            const storageRef = ref(storage, fileName);
-            const uploadTask = uploadBytesResumable(storageRef, selectedFile);
+        const uploadPromises = selectedFiles.map(async (fileObj, index) => {
+            try {
+                // Update status to uploading
+                setSelectedFiles(prev => prev.map((f, i) =>
+                    i === index ? { ...f, status: 'uploading' as const } : f
+                ));
 
-            uploadTask.on(
-                "state_changed",
-                (snapshot) => {
-                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    setUploadProgress(Math.round(progress));
-                },
-                (error) => {
-                    console.error("Upload error:", error);
-                    alert("Error uploading image");
-                    setUploading(false);
-                },
-                async () => {
-                    // Get download URL
-                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                // Upload to Firebase Storage
+                const timestamp = Date.now();
+                const fileName = `gallery/${timestamp}_${index}_${fileObj.file.name}`;
+                const storageRef = ref(storage, fileName);
+                const uploadTask = uploadBytesResumable(storageRef, fileObj.file);
 
-                    // Save metadata to Firestore
-                    const newImage = await createGalleryImage({
-                        title,
-                        description,
-                        imageUrl: downloadURL,
-                        uploadDate: new Date().toISOString(),
-                        uploadedBy: "Admin",
-                        season: season || undefined,
-                        tags: []
-                    });
+                return new Promise<void>((resolve, reject) => {
+                    uploadTask.on(
+                        "state_changed",
+                        (snapshot) => {
+                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                            setSelectedFiles(prev => prev.map((f, i) =>
+                                i === index ? { ...f, progress: Math.round(progress) } : f
+                            ));
+                        },
+                        (error) => {
+                            console.error("Upload error:", error);
+                            setSelectedFiles(prev => prev.map((f, i) =>
+                                i === index ? { ...f, status: 'error' as const } : f
+                            ));
+                            reject(error);
+                        },
+                        async () => {
+                            // Get download URL
+                            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
 
-                    if (newImage) {
-                        setImages([newImage, ...images]);
-                        resetForm();
-                        setIsUploadModalOpen(false);
-                    }
-                    setUploading(false);
-                }
-            );
-        } catch (error) {
-            console.error("Error:", error);
-            alert("Error uploading image");
-            setUploading(false);
-        }
+                            // Save metadata to Firestore
+                            const title = commonTitle || `Photo ${index + 1}`;
+                            const newImage = await createGalleryImage({
+                                title,
+                                description: commonDescription,
+                                imageUrl: downloadURL,
+                                uploadDate: new Date().toISOString(),
+                                uploadedBy: "Admin",
+                                season: commonSeason || undefined,
+                                tags: []
+                            });
+
+                            if (newImage) {
+                                setImages(prev => [newImage, ...prev]);
+                                setSelectedFiles(prev => prev.map((f, i) =>
+                                    i === index ? { ...f, status: 'success' as const } : f
+                                ));
+                            }
+                            resolve();
+                        }
+                    );
+                });
+            } catch (error) {
+                console.error("Error uploading file:", error);
+            }
+        });
+
+        await Promise.all(uploadPromises);
+        setUploading(false);
+
+        // Auto-close after 2 seconds if all successful
+        setTimeout(() => {
+            const allSuccess = selectedFiles.every(f => f.status === 'success');
+            if (allSuccess) {
+                resetForm();
+                setIsUploadModalOpen(false);
+            }
+        }, 2000);
     };
 
     const handleDelete = async (image: GalleryImage) => {
         if (!confirm(`Delete "${image.title}"?`)) return;
 
         try {
-            // Delete from Firestore
             const success = await deleteGalleryImage(image.id);
 
             if (success) {
-                // Delete from Storage
                 const imageRef = ref(storage, image.imageUrl);
                 try {
                     await deleteObject(imageRef);
@@ -123,12 +157,11 @@ export default function AdminGalleryPage() {
     };
 
     const resetForm = () => {
-        setSelectedFile(null);
-        setPreviewUrl("");
-        setTitle("");
-        setDescription("");
-        setSeason("");
-        setUploadProgress(0);
+        selectedFiles.forEach(f => URL.revokeObjectURL(f.preview));
+        setSelectedFiles([]);
+        setCommonTitle("");
+        setCommonDescription("");
+        setCommonSeason("");
     };
 
     return (
@@ -145,7 +178,7 @@ export default function AdminGalleryPage() {
                         className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-slate-950 font-bold rounded-lg transition-colors"
                     >
                         <Upload size={20} />
-                        Upload Photo
+                        Upload Photos
                     </button>
                 </div>
 
@@ -195,9 +228,9 @@ export default function AdminGalleryPage() {
                 {/* Upload Modal */}
                 {isUploadModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                        <div className="bg-slate-900 border border-white/10 rounded-xl w-full max-w-2xl shadow-2xl">
-                            <div className="flex items-center justify-between p-6 border-b border-white/10">
-                                <h3 className="text-xl font-bold text-white">Upload Photo</h3>
+                        <div className="bg-slate-900 border border-white/10 rounded-xl w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-auto">
+                            <div className="flex items-center justify-between p-6 border-b border-white/10 sticky top-0 bg-slate-900 z-10">
+                                <h3 className="text-xl font-bold text-white">Upload Multiple Photos</h3>
                                 <button
                                     onClick={() => {
                                         setIsUploadModalOpen(false);
@@ -212,68 +245,118 @@ export default function AdminGalleryPage() {
                             <div className="p-6 space-y-6">
                                 {/* File Upload */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-2">Select Image</label>
+                                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                                        Select Images (Multiple)
+                                    </label>
                                     <input
                                         type="file"
                                         accept="image/*"
+                                        multiple
                                         onChange={handleFileSelect}
                                         className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-3 text-white"
+                                        disabled={uploading}
                                     />
-                                    {previewUrl && (
-                                        <div className="mt-4 relative w-full h-64 rounded-lg overflow-hidden">
-                                            <Image src={previewUrl} alt="Preview" fill className="object-cover" />
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        Select multiple images to upload at once
+                                    </p>
+                                </div>
+
+                                {/* Selected Files Preview */}
+                                {selectedFiles.length > 0 && (
+                                    <div className="space-y-4">
+                                        <h4 className="text-white font-bold">
+                                            Selected Files ({selectedFiles.length})
+                                        </h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-64 overflow-y-auto p-2 bg-slate-950/50 rounded-lg">
+                                            {selectedFiles.map((file, index) => (
+                                                <div key={index} className="relative group">
+                                                    <div className="aspect-square relative rounded-lg overflow-hidden border border-white/10">
+                                                        <Image
+                                                            src={file.preview}
+                                                            alt={`Preview ${index + 1}`}
+                                                            fill
+                                                            className="object-cover"
+                                                        />
+                                                        {file.status === 'uploading' && (
+                                                            <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                                                                <div className="text-center">
+                                                                    <Loader className="animate-spin text-primary mx-auto mb-1" size={20} />
+                                                                    <p className="text-xs text-white">{file.progress}%</p>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {file.status === 'success' && (
+                                                            <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
+                                                                <CheckCircle className="text-green-400" size={32} />
+                                                            </div>
+                                                        )}
+                                                        {file.status === 'error' && (
+                                                            <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center">
+                                                                <X className="text-red-400" size={32} />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {!uploading && file.status === 'pending' && (
+                                                        <button
+                                                            onClick={() => removeFile(index)}
+                                                            className="absolute -top-2 -right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        >
+                                                            <X size={16} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
                                         </div>
-                                    )}
-                                </div>
-
-                                {/* Title */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-2">Title *</label>
-                                    <input
-                                        type="text"
-                                        value={title}
-                                        onChange={(e) => setTitle(e.target.value)}
-                                        placeholder="Enter photo title"
-                                        className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-3 text-white"
-                                    />
-                                </div>
-
-                                {/* Description */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-2">Description (Optional)</label>
-                                    <textarea
-                                        value={description}
-                                        onChange={(e) => setDescription(e.target.value)}
-                                        placeholder="Add a description"
-                                        rows={3}
-                                        className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-3 text-white resize-none"
-                                    />
-                                </div>
-
-                                {/* Season */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-400 mb-2">Season (Optional)</label>
-                                    <input
-                                        type="text"
-                                        value={season}
-                                        onChange={(e) => setSeason(e.target.value)}
-                                        placeholder="e.g., BPL Season 4 - 2025"
-                                        className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-3 text-white"
-                                    />
-                                </div>
-
-                                {/* Progress Bar */}
-                                {uploading && (
-                                    <div>
-                                        <div className="w-full bg-slate-800 rounded-full h-2 mb-2">
-                                            <div
-                                                className="bg-primary h-2 rounded-full transition-all"
-                                                style={{ width: `${uploadProgress}%` }}
-                                            />
-                                        </div>
-                                        <p className="text-sm text-gray-400 text-center">{uploadProgress}% uploaded</p>
                                     </div>
                                 )}
+
+                                {/* Common Title */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                                        Title Prefix (Optional)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={commonTitle}
+                                        onChange={(e) => setCommonTitle(e.target.value)}
+                                        placeholder="e.g., BPL 2025 Finals"
+                                        className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-3 text-white"
+                                        disabled={uploading}
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Leave blank to auto-number photos
+                                    </p>
+                                </div>
+
+                                {/* Common Description */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                                        Description (Optional, applies to all)
+                                    </label>
+                                    <textarea
+                                        value={commonDescription}
+                                        onChange={(e) => setCommonDescription(e.target.value)}
+                                        placeholder="Add a common description for all photos"
+                                        rows={3}
+                                        className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-3 text-white resize-none"
+                                        disabled={uploading}
+                                    />
+                                </div>
+
+                                {/* Common Season */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                                        Season (Optional, applies to all)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={commonSeason}
+                                        onChange={(e) => setCommonSeason(e.target.value)}
+                                        placeholder="e.g., BPL Season 4 - 2025"
+                                        className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-3 text-white"
+                                        disabled={uploading}
+                                    />
+                                </div>
 
                                 {/* Submit */}
                                 <div className="flex gap-3 justify-end pt-4 border-t border-white/10">
@@ -288,11 +371,21 @@ export default function AdminGalleryPage() {
                                         Cancel
                                     </button>
                                     <button
-                                        onClick={handleUpload}
-                                        disabled={uploading || !selectedFile || !title}
-                                        className="px-6 py-3 bg-primary hover:bg-primary/90 text-slate-950 font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        onClick={handleBulkUpload}
+                                        disabled={uploading || selectedFiles.length === 0}
+                                        className="px-6 py-3 bg-primary hover:bg-primary/90 text-slate-950 font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                     >
-                                        {uploading ? "Uploading..." : "Upload"}
+                                        {uploading ? (
+                                            <>
+                                                <Loader className="animate-spin" size={20} />
+                                                Uploading {selectedFiles.filter(f => f.status === 'success').length}/{selectedFiles.length}...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Upload size={20} />
+                                                Upload {selectedFiles.length} Photo{selectedFiles.length !== 1 ? 's' : ''}
+                                            </>
+                                        )}
                                     </button>
                                 </div>
                             </div>
