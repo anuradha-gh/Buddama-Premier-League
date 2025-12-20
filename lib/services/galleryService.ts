@@ -57,6 +57,10 @@ export async function createGalleryImage(imageData: Omit<GalleryImage, 'id'>): P
         if (imageData.description) cleanData.description = imageData.description;
         if (imageData.season) cleanData.season = imageData.season;
         if (imageData.thumbnailUrl) cleanData.thumbnailUrl = imageData.thumbnailUrl;
+        if (imageData.album) cleanData.album = imageData.album;  // ✅ ADD THIS
+        if (imageData.albumCover) cleanData.albumCover = imageData.albumCover;  // ✅ ADD THIS
+
+        console.log("💾 Saving to Firestore:", cleanData);
 
         const docRef = await addDoc(collection(db, GALLERY_COLLECTION), cleanData);
 
