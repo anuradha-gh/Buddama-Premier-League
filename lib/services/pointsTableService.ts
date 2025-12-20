@@ -32,10 +32,14 @@ export async function getPointsTableBySeason(seasonId: string): Promise<PointsTa
         const enrichedEntries = await Promise.all(
             entries.map(async (entry) => {
                 try {
+                    console.log("🔍 Fetching logo for team:", entry.teamId, entry.teamName);
                     const teamDoc = await getDocs(query(collection(db, "teams"), where("__name__", "==", entry.teamId)));
                     if (!teamDoc.empty) {
                         const teamData = teamDoc.docs[0].data();
+                        console.log("✅ Found team data:", { teamId: entry.teamId, logo: teamData.logo });
                         return { ...entry, teamLogo: teamData.logo };
+                    } else {
+                        console.warn("❌ No team document found for teamId:", entry.teamId);
                     }
                 } catch (error) {
                     console.error(`Error fetching team logo for ${entry.teamId}:`, error);
