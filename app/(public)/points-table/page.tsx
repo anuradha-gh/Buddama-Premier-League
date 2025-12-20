@@ -101,7 +101,7 @@ export default function PointsTablePage() {
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
                                                 {entry.teamLogo && (
-                                                    <div className="relative w-8 h-8 flex-shrink-0">
+                                                    <div className="relative w-12 h-12 flex-shrink-0">
                                                         <Image
                                                             src={entry.teamLogo}
                                                             alt={entry.teamName}
