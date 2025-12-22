@@ -72,16 +72,37 @@ export default function RosterClient({ teamId }: RosterClientProps) {
     });
 
     // Handlers
-    const handleMetaSave = () => {
+    const handleMetaSave = async () => {
         if (!team) return;
-        const years = metaForm.championshipYears.split(",").map(y => parseInt(y.trim())).filter(y => !isNaN(y));
-        setTeam({
-            ...team,
-            coach: metaForm.coach,
-            owner: metaForm.owner,
-            championshipYears: years
-        });
-        setIsEditingMeta(false);
+        
+        try {
+            const years = metaForm.championshipYears.split(",").map(y => parseInt(y.trim())).filter(y => !isNaN(y));
+            
+            // Import Firestore functions
+            const { doc, updateDoc } = await import("firebase/firestore");
+            const { db } = await import("@/lib/firebase");
+            
+            // Update Firestore
+            await updateDoc(doc(db, "teams", teamId), {
+                coach: metaForm.coach,
+                owner: metaForm.owner,
+                championshipYears: years
+            });
+            
+            // Update local state
+            setTeam({
+                ...team,
+                coach: metaForm.coach,
+                owner: metaForm.owner,
+                championshipYears: years
+            });
+            
+            setIsEditingMeta(false);
+            alert("✅ Team information updated successfully!");
+        } catch (error) {
+            console.error("Error updating team metadata:", error);
+            alert("❌ Failed to update team information. Please try again.");
+        }
     };
 
     const handlePlayerSave = async () => {
