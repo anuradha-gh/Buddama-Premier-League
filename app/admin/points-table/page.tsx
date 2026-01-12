@@ -50,11 +50,12 @@ export default function AdminPointsTablePage() {
             const teams = await getAllTeams();
             console.log("All teams fetched:", teams);
 
-            const seasonTeams = teams.filter(t => t.seasonId === selectedSeasonId);
+            // Use all teams for the season (teams participate in all seasons)
+            const seasonTeams = teams;
             console.log("Teams for selected season:", seasonTeams);
 
             if (seasonTeams.length === 0) {
-                alert(`No teams found for this season. Please add teams first.`);
+                alert(`No teams found. Please add teams first.`);
                 return;
             }
 
