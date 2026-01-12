@@ -19,10 +19,11 @@ export default function PointsTablePage() {
             const fetchedSeasons = await getAllSeasons();
             setSeasons(fetchedSeasons);
 
-            // Default to current season
-            const currentSeason = fetchedSeasons.find(s => s.isCurrent) || fetchedSeasons[0];
-            if (currentSeason) {
-                setSelectedSeasonId(currentSeason.id);
+            // Default to newest season (sort by year descending)
+            const sortedSeasons = [...fetchedSeasons].sort((a, b) => b.year - a.year);
+            const newestSeason = sortedSeasons[0];
+            if (newestSeason) {
+                setSelectedSeasonId(newestSeason.id);
             }
             setLoading(false);
         };

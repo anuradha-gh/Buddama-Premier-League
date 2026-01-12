@@ -20,8 +20,9 @@ export default function AdminPointsTablePage() {
             const fetchedSeasons = await getAllSeasons();
             setSeasons(fetchedSeasons);
             if (fetchedSeasons.length > 0) {
-                const current = fetchedSeasons.find(s => s.isCurrent) || fetchedSeasons[0];
-                setSelectedSeasonId(current.id);
+                // Default to newest season (sort by year descending)
+                const sortedSeasons = [...fetchedSeasons].sort((a, b) => b.year - a.year);
+                setSelectedSeasonId(sortedSeasons[0].id);
             }
             setLoading(false);
         };
