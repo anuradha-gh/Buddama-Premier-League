@@ -26,9 +26,9 @@ export default function MatchHistoryPage() {
             setTeams(fetchedTeams);
 
             if (fetchedSeasons.length > 0) {
-                // Default to current season or the first one
-                const currentSeason = fetchedSeasons.find(s => s.isCurrent) || fetchedSeasons[0];
-                setSelectedSeasonId(currentSeason.id);
+                // Default to newest season (sort by year descending)
+                const sortedSeasons = [...fetchedSeasons].sort((a, b) => b.year - a.year);
+                setSelectedSeasonId(sortedSeasons[0].id);
             }
             setLoading(false);
         };
