@@ -1,16 +1,55 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+// Rate limiting store (in-memory, resets on server restart)
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+function rateLimit(identifier: string, maxRequests: number = 100, windowMs: number = 15 * 60 * 1000): boolean {
+    const now = Date.now();
+    const record = rateLimitStore.get(identifier);
+
+    if (!record || now > record.resetTime) {
+        // Create new record or reset expired one
+        rateLimitStore.set(identifier, { count: 1, resetTime: now + windowMs });
+        return true;
+    }
+
+    if (record.count >= maxRequests) {
+        // Rate limit exceeded
+        return false;
+    }
+
+    // Increment count
+    record.count++;
+    return true;
+}
+
 export function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
-    // Skip protection for login page
+    // Get IP address for rate limiting
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+
+    // Apply stricter rate limiting to login page
     if (pathname === '/admin/login') {
+        if (!rateLimit(`login:${ip}`, 10, 15 * 60 * 1000)) {
+            return NextResponse.json(
+                { error: 'Too many login attempts. Please try again later.' },
+                { status: 429 }
+            );
+        }
         return NextResponse.next();
     }
 
-    // Check if accessing admin routes
+    // Apply general rate limiting to all admin routes
     if (pathname.startsWith('/admin')) {
+        if (!rateLimit(`admin:${ip}`, 100, 15 * 60 * 1000)) {
+            return NextResponse.json(
+                { error: 'Too many requests. Please slow down.' },
+                { status: 429 }
+            );
+        }
+
         // Check for auth token in cookie
         const authToken = request.cookies.get('bpl_admin_auth');
         const loginTime = request.cookies.get('bpl_admin_login_time');
