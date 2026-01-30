@@ -2,36 +2,43 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, Shield } from "lucide-react";
-import { verifyAdminPassword, setAdminSession, isAdminAuthenticated } from "@/lib/services/authService";
+import { Lock, Shield, User } from "lucide-react";
+import { verifyAdminCredentials, setAdminSession, isAdminAuthenticated } from "@/lib/services/authService";
 import Image from "next/image";
 
 export default function AdminLoginPage() {
+    const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [lockedUntil, setLockedUntil] = useState<Date | null>(null);
     const router = useRouter();
 
     useEffect(() => {
         // Redirect if already logged in
         if (isAdminAuthenticated()) {
-            router.push("/admin/dashboard");
+            window.location.href = "/admin/dashboard";
         }
-    }, [router]);
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
+        setLockedUntil(null);
         setLoading(true);
 
         try {
-            const isValid = await verifyAdminPassword(password);
+            const result = await verifyAdminCredentials(username, password);
 
-            if (isValid) {
+            if (result.success) {
                 setAdminSession();
-                router.push("/admin/dashboard");
+                // Use window.location.href for hard navigation to dashboard
+                window.location.href = "/admin/dashboard";
             } else {
-                setError("Invalid password");
+                setError(result.message);
+                if (result.lockedUntil) {
+                    setLockedUntil(result.lockedUntil);
+                }
                 setPassword("");
             }
         } catch (err) {
@@ -55,7 +62,7 @@ export default function AdminLoginPage() {
                         />
                     </div>
                     <h1 className="font-display text-3xl text-white mb-2">BPL ADMIN</h1>
-                    <p className="text-gray-400">Enter password to continue</p>
+                    <p className="text-gray-400">Enter credentials to continue</p>
                 </div>
 
                 {/* Login Form */}
@@ -66,10 +73,30 @@ export default function AdminLoginPage() {
                         </div>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        {/* Username Field */}
                         <div>
                             <label className="block text-sm font-medium text-gray-400 mb-2">
-                                Admin Password
+                                Username
+                            </label>
+                            <div className="relative">
+                                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={20} />
+                                <input
+                                    type="text"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    placeholder="Enter your username"
+                                    className="w-full bg-slate-950 border border-white/10 rounded-lg pl-12 pr-4 py-3 text-white focus:outline-none focus:border-primary transition-colors"
+                                    required
+                                    disabled={loading}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Password Field */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-2">
+                                Password
                             </label>
                             <div className="relative">
                                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={20} />
@@ -80,24 +107,39 @@ export default function AdminLoginPage() {
                                     placeholder="Enter your password"
                                     className="w-full bg-slate-950 border border-white/10 rounded-lg pl-12 pr-4 py-3 text-white focus:outline-none focus:border-primary transition-colors"
                                     required
+                                    disabled={loading}
                                 />
                             </div>
                         </div>
 
+                        {/* Error Message */}
                         {error && (
-                            <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-3 text-red-400 text-sm">
-                                {error}
+                            <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-3">
+                                <p className="text-red-400 text-sm font-medium">{error}</p>
+                                {lockedUntil && (
+                                    <p className="text-red-300 text-xs mt-1">
+                                        Try again after {lockedUntil.toLocaleTimeString()}
+                                    </p>
+                                )}
                             </div>
                         )}
 
+                        {/* Login Button */}
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-primary hover:bg-primary/90 text-slate-950 font-bold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-primary hover:bg-primary/90 text-slate-950 font-bold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-6"
                         >
                             {loading ? "Verifying..." : "Login"}
                         </button>
                     </form>
+
+                    {/* Security Notice */}
+                    <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                        <p className="text-yellow-400 text-xs text-center">
+                            🔒 Account locks after 5 failed attempts (30 min)
+                        </p>
+                    </div>
                 </div>
 
                 <p className="text-center text-gray-500 text-sm mt-6">
